@@ -1,9 +1,7 @@
-import React from 'react'
+import React from "react";
 
 const App = () => {
-  return (
-    <div>Task manger</div>
-  )
-}
+  return <div className="text-primary">Task manager</div>;
+};
 
-export default App
+export default App;
