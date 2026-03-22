@@ -5,16 +5,23 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+mongoose.connect(process.env.MONGO_URL).then
+    (() => {
+        console.log("database is connected sucessfully")
+    })
+    .catch((err) => {
+        console.log(err)
+    })
 
-const app=express()
+const app = express()
 app.use(cors({
-    origin:process.env.FRONT_END_URL || "http://localhost:5173",
-    methods:["GET","POST","DELETE","PUT"],
-    credentials:true,
+    origin: process.env.FRONT_END_URL || "http://localhost:5173",
+    methods: ["GET", "POST", "DELETE", "PUT"],
+    credentials: true,
 }))
 
 app.use(express.json())
 
-app.listen(3000,()=>{
+app.listen(3000, () => {
     console.log("server is running on port 3000..")
 })
