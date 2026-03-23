@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken"
+import { errorHandler } from "../utils/error.js";
 
 export const signup = async (req, res) => {
     const { name, email, password, profileImageUrl, adminJoinCode } = req.body;
@@ -74,12 +75,27 @@ export const signin = async (req, res, next) => {
             return next(errorHandler(400, "Wrong Credentials"))
         }
 
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET)
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
         const { password: pass, ...rest } = user._doc
 
-        res.status(200).cookie("acesss_token", token, { httpOnly: true }).json(rest)
+        res.status(200).cookie("access_token", token, { httpOnly: true }).json(rest)
 
     } catch (error) {
         next(error)
+    }
+}
+
+export const userProfile = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id)
+        if (!user) {
+            return next(errorHandler(401, "User Not found!"))
+
+        }
+        const { password: pass, ...rest } = user._doc
+        res.status(200).json(rest)
+    } catch (error) {
+        next(error)
+
     }
 }
