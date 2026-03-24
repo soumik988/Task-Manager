@@ -99,3 +99,49 @@ export const userProfile = async (req, res, next) => {
 
     }
 }
+
+export const updateUserProfile = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id)
+        if (!user) {
+            return next(errorHandler(404, "User not found!"))
+        }
+        user.name = req.body.name || user.name
+        user.email = req.body.email || user.email
+        if (req.body.password) {
+            user.password = bcryptjs.hashSync(req.body.password, 10)
+        }
+        const updateUser = await user.save()
+        const { password: pass, ...rest } = user._doc
+        res.status(200).json(rest)
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const uploadImage = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return next(errorHandler(400, "No file uploaded"))
+        }
+
+        const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename
+            }`
+
+        res.status(200).json({ imageUrl })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+export const signout = async (req, res, next) => {
+    try {
+        res
+            .clearCookie("access_token")
+            .status(200)
+            .json("User has been logged out successfully!")
+    } catch (error) {
+        next(error)
+    }
+}
