@@ -1,5 +1,5 @@
 import express from "express"
-import { adminOnly, verifyToken } from "../utils/verifuUser.js";
+import { adminOnly, verifyToken } from "../utils/verifyUser.js";
 import { getUsers, getUsersById } from "../controller/user.controller.js";
 
 const router =express.Router()

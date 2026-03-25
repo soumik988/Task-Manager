@@ -1,6 +1,6 @@
 import express from "express"
 import { signin, signout, signup, updateUserProfile, uploadImage, userProfile } from "../controller/auth.controller.js"
-import { verifyToken } from "../utils/verifuUser.js"
+import { verifyToken } from "../utils/verifyUser.js"
 import upload from "../utils/multer.js"
 
 const router = express.Router()
