@@ -50,13 +50,13 @@ export const getTasks = async (req, res, next) => {
         if (req.user.role === "admin") {
             tasks = await Task.find(filter).populate(
                 "assignedTo",
-                "name email profileImage"
+                "name email profileImageUrl"
             )
         } else {
             tasks = await Task.find({
                 ...filter,
                 assignedTo: req.user.id,
-            }).populate("assignedTo", "name email profileImage")
+            }).populate("assignedTo", "name email profileImageUrl")
 
         }
         tasks = await Promise.all(
@@ -105,6 +105,21 @@ export const getTasks = async (req, res, next) => {
             },
         })
 
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getTasksById = async (req, res, next) => {
+    try {
+        const task = await Task.findById(req.params.id).populate(
+            "assignedTo", "name email profileImageUrl"
+        )
+        if (!task) {
+            return next(errorHandler(404, "Task not found"))
+
+        }
+        res.status(200).json(task)
     } catch (error) {
         next(error)
     }
