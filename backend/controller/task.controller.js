@@ -1,3 +1,4 @@
+import mongoose from "mongoose"
 import Task from "../models/task.model.js"
 import { errorHandler } from "../utils/error.js"
 
@@ -205,50 +206,224 @@ export const updateTaskStatus = async (req, res, next) => {
 
 
 export const updateTaskChecklist = async (req, res, next) => {
+    try {
+        const { todoChecklist } = req.body
+
+        const task = await Task.findById(req.params.id)
+
+        if (!task) {
+            return next(errorHandler(404, "Task not found!"))
+        }
+
+        if (!task.assignedTo.includes(req.user.id) && req.user.role !== "admin") {
+            return next(errorHandler(403, "Not authorized to update checklist"))
+        }
+
+        task.todoChecklist = todoChecklist
+
+        const completedCount = task.todoChecklist.filter(
+            (item) => item.completed
+        ).length
+
+        const totalItems = task.todoChecklist.length
+
+        task.progress =
+            totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0
+
+        //   4 task, 1 complete  completedCount / totalItems = (1/4 ) * 100= 25
+
+        if (task.progress === 100) {
+            task.status = "Completed"
+        } else if (task.progress > 0) {
+            task.status = "In Progress"
+        } else {
+            task.status = "Pending"
+        }
+
+        await task.save()
+
+        const updatedTask = await Task.findById(req.params.id).populate(
+            "assignedTo",
+            "name email profileImageUrl"
+        )
+
+        res
+            .status(200)
+            .json({ message: "Task checklist updated", task: updatedTask })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+
+
+export const getDashboardData = async (req, res, next) => {
   try {
-    const { todoChecklist } = req.body
+    // Fetch statistics
+    const totalTasks = await Task.countDocuments()
+    const pendingTasks = await Task.countDocuments({ status: "Pending" })
+    const completedTasks = await Task.countDocuments({ status: "Completed" })
+    const overdueTasks = await Task.countDocuments({
+      status: { $ne: "Completed" },
+      dueDate: { $lt: new Date() },
+    })
 
-    const task = await Task.findById(req.params.id)
+    const taskStatuses = ["Pending", "In Progress", "Completed"]
 
-    if (!task) {
-      return next(errorHandler(404, "Task not found!"))
-    }
+    const taskDistributionRaw = await Task.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+    ])
 
-    if (!task.assignedTo.includes(req.user.id) && req.user.role !== "admin") {
-      return next(errorHandler(403, "Not authorized to update checklist"))
-    }
+    const taskDistribution = taskStatuses.reduce((acc, status) => {
+      const formattedKey = status.replace(/\s+/g, "") //remove spaces for response keys
 
-    task.todoChecklist = todoChecklist
+      acc[formattedKey] =
+        taskDistributionRaw.find((item) => item._id === status)?.count || 0
 
-    const completedCount = task.todoChecklist.filter(
-      (item) => item.completed
-    ).length
+      return acc
+    }, {})
 
-    const totalItems = task.todoChecklist.length
+    taskDistribution["All"] = totalTasks
 
-    task.progress =
-      totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0
+    const taskPriorities = ["Low", "Medium", "High"]
 
-    //   4 task, 1 complete  completedCount / totalItems = (1/4 ) * 100= 25
+    const taskPriorityLevelRaw = await Task.aggregate([
+      {
+        $group: {
+          _id: "$priority",
+          count: { $sum: 1 },
+        },
+      },
+    ])
 
-    if (task.progress === 100) {
-      task.status = "Completed"
-    } else if (task.progress > 0) {
-      task.status = "In Progress"
-    } else {
-      task.status = "Pending"
-    }
+    const taskPriorityLevel = taskPriorities.reduce((acc, priority) => {
+      acc[priority] =
+        taskPriorityLevelRaw.find((item) => item._id === priority)?.count || 0
 
-    await task.save()
+      return acc
+    }, {})
 
-    const updatedTask = await Task.findById(req.params.id).populate(
-      "assignedTo",
-      "name email profileImageUrl"
-    )
+    // Fetch recent 10 tasks
+    const recentTasks = await Task.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select("title status priority dueDate createdAt")
 
-    res
-      .status(200)
-      .json({ message: "Task checklist updated", task: updatedTask })
+    res.status(200).json({
+      statistics: {
+        totalTasks,
+        pendingTasks,
+        completedTasks,
+        overdueTasks,
+      },
+      charts: {
+        taskDistribution,
+        taskPriorityLevel,
+      },
+
+      recentTasks,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const userDashboardData = async (req, res, next) => {
+  try {
+    const userId = req.user.id
+
+    // console.log(userId)
+
+    // Convert userId to ObjectId for proper matching
+    const userObjectId = new mongoose.Types.ObjectId(userId)
+
+    // console.log(userObjectId)
+
+    // fetch statistics for user-specific tasks
+    const totalTasks = await Task.countDocuments({ assignedTo: userId })
+    const pendingTasks = await Task.countDocuments({
+      assignedTo: userId,
+      status: "Pending",
+    })
+    const completedTasks = await Task.countDocuments({
+      assignedTo: userId,
+      status: "Completed",
+    })
+    const overdueTasks = await Task.countDocuments({
+      assignedTo: userId,
+      status: { $ne: "Completed" },
+      dueDate: { $lt: new Date() },
+    })
+
+    // Task distribution by status
+    const taskStatuses = ["Pending", "In Progress", "Completed"]
+
+    const taskDistributionRaw = await Task.aggregate([
+      {
+        $match: { assignedTo: userObjectId },
+      },
+      {
+        $group: { _id: "$status", count: { $sum: 1 } },
+      },
+    ])
+
+    // console.log(taskDistributionRaw)
+
+    const taskDistribution = taskStatuses.reduce((acc, status) => {
+      const formattedKey = status.replace(/\s+/g, "")
+
+      acc[formattedKey] =
+        taskDistributionRaw.find((item) => item._id === status)?.count || 0
+
+      return acc
+    }, {})
+
+    taskDistribution["All"] = totalTasks
+
+    // Task distribution by priority
+    const taskPriorities = ["Low", "Medium", "High"]
+
+    const taskPriorityLevelRaw = await Task.aggregate([
+      { $match: { assignedTo: userObjectId } },
+      {
+        $group: {
+          _id: "$priority",
+          count: { $sum: 1 },
+        },
+      },
+    ])
+
+    const taskPriorityLevel = taskPriorities.reduce((acc, priority) => {
+      acc[priority] =
+        taskPriorityLevelRaw.find((item) => item._id === priority)?.count || 0
+
+      return acc
+    }, {})
+
+    const recentTasks = await Task.find({ assignedTo: userObjectId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select("title status priority dueDate createdAt")
+
+    res.status(200).json({
+      statistics: {
+        totalTasks,
+        pendingTasks,
+        completedTasks,
+        overdueTasks,
+      },
+      charts: {
+        taskDistribution,
+        taskPriorityLevel,
+      },
+      recentTasks,
+    })
   } catch (error) {
     next(error)
   }
