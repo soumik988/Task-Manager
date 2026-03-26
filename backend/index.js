@@ -5,6 +5,7 @@ import dotenv from "dotenv"
 import authRoutes from "./routes/auth.route.js"
 import userRoutes from "./routes/user.route.js"
 import taskRoutes from "./routes/task.route.js"
+import reportTask from "./routes/report.route.js"
 import cookieParser from "cookie-parser"
 
 dotenv.config()
@@ -30,19 +31,19 @@ app.use(cookieParser())
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/task", taskRoutes);
-
+app.use("/api/report", reportTask)
 app.listen(3000, () => {
     console.log("server is running on port 3000..")
 })
 
 app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500
+    const statusCode = err.statusCode || 500
 
-  const message = err.message || "Internal Server Error"
+    const message = err.message || "Internal Server Error"
 
-  res.status(statusCode).json({
-    success: false,
-    statusCode,
-    message,
-  })
+    res.status(statusCode).json({
+        success: false,
+        statusCode,
+        message,
+    })
 })
