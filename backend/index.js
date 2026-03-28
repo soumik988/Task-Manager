@@ -30,7 +30,7 @@ app.use(cookieParser())
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/task", taskRoutes);
+app.use("/api/tasks", taskRoutes);
 app.use("/api/report", reportTask)
 app.listen(3000, () => {
     console.log("server is running on port 3000..")
